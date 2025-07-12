@@ -1,0 +1,75 @@
+version: "3.8"
+
+services:
+  fluig:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        TZ: ${TZ}
+    depends_on:
+      mysql:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+      - "7777:7777"
+      - "8888:8888"
+      - "8000:8000"
+      - "8983:8983"
+      - "9990:9990"
+    networks:
+      - fluig-net
+    volumes:
+      - ./setup:/opt/setup
+      - ./entrypoint.sh:/entrypoint.sh
+      - fluig-data:/opt/fluig-volume
+
+  mysql:
+    image: mysql:8.0
+    command:
+      - mysqld
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_general_ci
+      - --lower_case_table_names=1
+      - --default_storage_engine=InnoDB
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: 'rootpass'
+      MYSQL_ROOT_HOST: "%"
+      MYSQL_DATABASE: 'fluig'
+      MYSQL_USER: 'fluig'
+      MYSQL_PASSWORD: 'fluigpass'
+      TZ: ${TZ}
+    networks:
+      - fluig-net
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-u", "root", "-prootpass"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+  mailpit:
+    image: axllent/mailpit:v1.27
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+    environment:
+      MP_MAX_MESSAGES: 1000
+      MP_DATABASE: /data/mailpit.db
+      MP_SMTP_AUTH_ACCEPT_ANY: "1"
+      MP_SMTP_AUTH_ALLOW_INSECURE: "1"
+    volumes:
+      - mailpit-data:/data
+    networks:
+      - fluig-net
+
+networks:
+  fluig-net:
+
+volumes:
+  mysql-data:
+  mailpit-data:
+  fluig-data:
